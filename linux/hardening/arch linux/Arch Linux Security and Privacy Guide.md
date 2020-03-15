@@ -1,98 +1,115 @@
 # Arch Linux Security and Privacy Guide
-> **Note:** The initial version of this document was not written by myself. It's based on the Guide from a Github Pages account called [ThePrivacyGuide1](https://theprivacyguide1.github.io/linux_hardening_guide.html). Meanwhile this page does not exist anymore. This copy was taken from the Web Archive and then converted to Markdown format.
+> **Note:** The initial version of this document was not written by myself. It's based on a Guide from a Github Pages account called [ThePrivacyGuide1](https://theprivacyguide1.github.io/linux_hardening_guide.html). Meanwhile this page does not exist anymore. This copy was taken from the Web Archive and then converted to Markdown format.
 
 This guide aims to help you harden your system for privacy and security.
 
 This will work for most other Linux distributions. Some settings may be different or some files may be placed elsewhere though.
-Contents
 
-k1. Kernels
+## Kernels
 An important part of Linux security is hardening the kernel against exploits. This can be with boot parameters, sysctls, kernel patches etc.
 
-1.1 Sysctl
+### sysctl
 Sysctl is a tool that can increase the kernel's security by changing certain kernel tunables. To change settings temporarily you can use
 
+```
 sysctl -w (param [value])
+```
 To change them permanently you can add files to /etc/sysctl.d.
 
 In /etc/sysctl.d create a file called "kptr_restrict.conf" (the name does not matter as long as it ends in '.conf'). In this file add
 
+```
 kernel.kptr_restrict=2
+```
+
 This setting attempts to prevent any kernel pointer leaks via various methods (such as in /proc/kallsyms or dmesg). Kernel pointers can be very useful for kernel exploits. Alternatively you can add "kernel.kptr_restrict=1" but this only hides kernel symbols for users other than the root user.
 
 Now create "dmesg_restrict.conf" and add
-
+```
 kernel.dmesg_restrict=1
+```
 This blocks users other than root from being able to see the kernel logs. The kernel logs can give an attacker useful information such as kernel pointers.
 
 Create "harden_bpf.conf" and add
-
+```
 kernel.unprivileged_bpf_disabled=1
 net.core.bpf_jit_harden=2
-
+```
 This makes it so that only root can use the BPF JIT compiler and to harden it. A JIT compiler opens up the possibility for an attacker to exploit many vulnerabilities such as JIT spraying.
 
 Create "ptrace_scope.conf" and add
-
+```
 kernel.yama.ptrace_scope=2
+```
 This makes only processes with CAP_SYS_PTRACE able to use ptrace. Ptrace is a system call that allows a program to alter and inspect a running process which allows attackers to easily compromise other running programs.
 
 Create "kexec.conf" and add
 
+```
 kernel.kexec_load_disabled=1
+```
 This disables kexec which can be used to replace the running kernel.
 
 Create "tcp_hardening.conf" and add
-
-
+```
 net.ipv4.tcp_syncookies=1
+```
 This helps protect against SYN flood attacks which is a form of denial of service attack where an attacker sends a lot of SYN requests in an attempt to consume enough resources to make the system unresponsive to legitimate traffic.
-
+```
 net.ipv4.tcp_rfc1337=1
+```
 This protects against time-wait assassination. It drops RST packets for sockets in the time-wait state.
-
+```
 net.ipv4.conf.default.rp_filter=1
 net.ipv4.conf.all.rp_filter=1
+```
 These enable source validation of packets received from all interfaces of the machine. This protects against IP spoofing methods in which an attacker can send a packet with a fake IP address.
-
+```
 net.ipv4.conf.all.accept_redirects=0
 net.ipv4.conf.default.accept_redirects=0
 net.ipv4.conf.all.secure_redirects=0
 net.ipv4.conf.default.secure_redirects=0
 net.ipv6.conf.all.accept_redirects=0
 net.ipv6.conf.default.accept_redirects=0
+```
 These disable ICMP redirect acceptance. If these settings are not set then an attacker can redirect an ICMP request to anywhere they want.
-
+```
 net.ipv4.conf.all.send_redirects=0
 net.ipv4.conf.default.send_redirects=0
+```
 These disable ICMP redirect sending when on a non-router.
-
+```
 net.ipv4.icmp_echo_ignore_all=1
+```
 This settings makes your system ignore ICMP requests.
 
 All of these harden the TCP/IP stack and tighten network security options.
 
 Create "mmap_aslr.conf" and add
+```
 vm.mmap_rnd_bits=32
 vm.mmap_rnd_compat_bits=16
-
+```
 These settings are set to the highest value to improve ASLR effectiveness for mmap. [10]
 Create "sysrq.conf" and add
-
+```
 kernel.sysrq=0
+```
 This disables the SysRq key which exposes tons of potentially dangerous debugging functionality to unprivileged, local users.
 
 Create "unprivileged_users_clone.conf" and add
-
+```
 kernel.unprivileged_userns_clone=0
+```
 This disables unprivileged user namespaces. User namespaces add a lot of attack surface for privilege escalation so it's best to restrict them to root only. This may break some sandboxing programs such as bubblewrap. These can be fixed by making the sandbox binaries setuid.
 
 Create "tcp_sack.conf" and add
-
+```
 net.ipv4.tcp_sack=0
+```
 This disables TCP SACK. SACK is commonly exploited and not needed for many circumstances so it should be disabled if you don't need it. To learn if SACK is needed for you or not, see https://serverfault.com/questions/10955/when-to-turn-tcp-sack-off.
 
-1.2 Boot Parameters
+### Boot Parameters
 Boot parameters pass settings to the kernel at boot using your bootloader. Some settings can be used to increase security. If using GRUB then edit /etc/default/grub and add your parameters at "GRUB_CMDLINE_LINUX_DEFAULT=".
 
 If using Syslinux then edit /boot/syslinux/syslinux.cfg and add them to the 'APPEND' line.
